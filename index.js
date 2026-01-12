@@ -49,7 +49,6 @@ client.on("messageCreate", async (message) => {
     // ================= LOOP SILENT AUDIO =================
     const player = createAudioPlayer();
 
-    // Tạo audio resource từ file silent.mp3 (1s im lặng)
     if (!fs.existsSync("./silent.mp3")) {
       console.log("❌ Không tìm thấy file silent.mp3. Hãy thêm 1 file âm thanh im lặng.");
     } else {
