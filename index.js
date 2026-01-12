@@ -1,6 +1,14 @@
+// index.js
 const { Client, GatewayIntentBits } = require("discord.js");
-const { joinVoiceChannel, getVoiceConnection } = require("@discordjs/voice");
+const { 
+  joinVoiceChannel, 
+  getVoiceConnection, 
+  createAudioPlayer, 
+  createAudioResource, 
+  StreamType 
+} = require("@discordjs/voice");
 const express = require("express");
+const fs = require("fs");
 
 // ====================== EXPRESS PORT GIẢ ======================
 const app = express();
@@ -19,12 +27,11 @@ const client = new Client({
   ]
 });
 
-// Khi bot online
 client.once("ready", () => {
   console.log(`🤖 Bot đã trực tuyến: ${client.user.tag}`);
 });
 
-// Lắng nghe lệnh !join
+// Lệnh !join
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
@@ -39,7 +46,27 @@ client.on("messageCreate", async (message) => {
       selfDeaf: false
     });
 
-    // Auto reconnect nếu bot bị disconnect
+    // ================= LOOP SILENT AUDIO =================
+    const player = createAudioPlayer();
+
+    // Tạo audio resource từ file silent.mp3 (1s im lặng)
+    if (!fs.existsSync("./silent.mp3")) {
+      console.log("❌ Không tìm thấy file silent.mp3. Hãy thêm 1 file âm thanh im lặng.");
+    } else {
+      const resource = createAudioResource("./silent.mp3", {
+        inputType: StreamType.Arbitrary
+      });
+
+      player.play(resource);
+      connection.subscribe(player);
+
+      // Loop lại khi audio xong
+      player.on("idle", () => {
+        player.play(resource);
+      });
+    }
+
+    // Auto reconnect nếu disconnect
     connection.on("stateChange", (oldState, newState) => {
       if (newState.status === "disconnected") {
         console.log("Bot bị disconnect, đang reconnect...");
@@ -53,10 +80,10 @@ client.on("messageCreate", async (message) => {
       }
     });
 
-    message.reply("✅ Bot đã vào phòng và đang ngồi đây");
+    message.reply("✅ Bot đã vào phòng và đang giữ channel!");
   }
 
-  // Lệnh !leave để bot rời phòng
+  // Lệnh !leave
   if (message.content === "!leave") {
     const connection = getVoiceConnection(message.guild.id);
     if (connection) {
@@ -68,5 +95,5 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// Login bot với token từ environment
+// Login với token từ Environment
 client.login(process.env.TOKEN);
