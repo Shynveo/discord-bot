@@ -8,12 +8,10 @@ const {
   StreamType 
 } = require("@discordjs/voice");
 const express = require("express");
-const fs = require("fs");
 
 // ====================== EXPRESS PORT GIẢ ======================
 const app = express();
 const PORT = process.env.PORT || 1000;
-
 app.get("/", (req, res) => res.send("Bot is running!"));
 app.listen(PORT, () => console.log(`Đang nghe trên cổng ${PORT}`));
 
@@ -31,7 +29,6 @@ client.once("ready", () => {
   console.log(`🤖 Bot đã trực tuyến: ${client.user.tag}`);
 });
 
-// Lệnh !join
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
@@ -42,28 +39,23 @@ client.on("messageCreate", async (message) => {
     const connection = joinVoiceChannel({
       channelId: voiceChannel.id,
       guildId: message.guild.id,
-      adapterCreator: message.guild.voiceAdapterCreator,
+      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
       selfDeaf: false
     });
 
-    // ================= LOOP SILENT AUDIO =================
+    // ================= LOOP SILENT AUDIO BẰNG BUFFER =================
     const player = createAudioPlayer();
+    const silenceBuffer = Buffer.alloc(48000 * 2 * 2, 0); // 1 giây silence, 48kHz, 16bit stereo
+    const resource = createAudioResource(silenceBuffer, { inputType: StreamType.Raw });
 
-    if (!fs.existsSync("./silent.mp3")) {
-      console.log("❌ Không tìm thấy file silent.mp3. Hãy thêm 1 file âm thanh im lặng.");
-    } else {
-      const resource = createAudioResource("./silent.mp3", {
-        inputType: StreamType.Arbitrary
-      });
+    player.play(resource);
+    connection.subscribe(player);
 
-      player.play(resource);
-      connection.subscribe(player);
-
-      // Loop lại khi audio xong
-      player.on("idle", () => {
-        player.play(resource);
-      });
-    }
+    // Loop khi audio xong
+    player.on("idle", () => {
+      const loopResource = createAudioResource(Buffer.alloc(48000 * 2 * 2, 0), { inputType: StreamType.Raw });
+      player.play(loopResource);
+    });
 
     // Auto reconnect nếu disconnect
     connection.on("stateChange", (oldState, newState) => {
@@ -72,8 +64,8 @@ client.on("messageCreate", async (message) => {
         connection.destroy();
         joinVoiceChannel({
           channelId: voiceChannel.id,
-          guildId: message.guild.id,
-          adapterCreator: message.guild.voiceAdapterCreator,
+          guildId: voiceChannel.guild.id,
+          adapterCreator: voiceChannel.guild.voiceAdapterCreator,
           selfDeaf: false
         });
       }
@@ -82,7 +74,6 @@ client.on("messageCreate", async (message) => {
     message.reply("✅ Bot đã vào phòng và đang giữ channel!");
   }
 
-  // Lệnh !leave
   if (message.content === "!leave") {
     const connection = getVoiceConnection(message.guild.id);
     if (connection) {
@@ -94,5 +85,4 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// Login với token từ Environment
 client.login(process.env.TOKEN);
